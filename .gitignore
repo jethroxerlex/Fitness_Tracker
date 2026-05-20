@@ -1,3 +1,4 @@
 .env
-users.csv
-meal_history.csv
+fita.db
+.venv
+__pycache__

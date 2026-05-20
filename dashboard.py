@@ -5,348 +5,320 @@ from PIL import Image
 import io
 from dotenv import load_dotenv
 import os
-import pandas as pd
-import plotly.express as px
 import json
-from datetime import datetime
+from datetime import date
+from db.db import get_connection
+from utils.helpers import calculate_age
 
-# API KEY
+# API SETUP
+
 load_dotenv()
 
 client = anthropic.Anthropic(
     api_key=os.getenv("API_KEY")
 )
 
+# MAIN DASHBOARD
 
-# DASHBOARD 
 def show_dashboard():
 
-    if "user_profile" not in st.session_state or st.session_state.user_profile is None: 
-        st.session_state.page = "landing"
+    # AUTH CHECK
+  
+    if "user" not in st.session_state or st.session_state["user"] is None:
+        st.session_state.page = "login"
         st.rerun()
 
-    profile = st.session_state.user_profile
+    user = st.session_state["user"]
 
-    st.title("FITA Dashboard")
+    # SIDEBAR
 
-    st.write(f"Welcome back, {profile['name']}")
+    st.sidebar.title("Navigation")
 
-    # PROFILE METRICS
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.metric("Age", profile["age"])
-    col2.metric("Weight", f"{profile['weight']} kg")
-    col3.metric("Height", f"{profile['height']} cm")
-    col4.metric("Goal", profile["goal"])
-
-    # BMI
-    bmi = profile["weight"] / (
-        (profile["height"] / 100) ** 2
+    page = st.sidebar.radio(
+        "Go to",
+        ["Dashboard", "Profile"]
     )
 
-    if bmi < 18.5:
-        category = "Underweight"
-    elif bmi < 25:
-        category = "Normal"
-    elif bmi < 30:
-        category = "Overweight"
+    if st.sidebar.button("Logout"):
+        st.session_state.user = None
+        st.session_state.page = "login"
+        st.rerun()
+
+    # SESSION INIT
+
+    if "daily_goal" not in st.session_state:
+        st.session_state.daily_goal = 2000
+
+    # GET USER PROFILE
+
+    con = get_connection()
+    cur = con.cursor()
+
+    cur.execute("""
+        SELECT username, first_name, birth_date, weight, height, goal
+        FROM Users
+        WHERE user_id = ?
+    """, (user["user_id"],))
+
+    db_profile = cur.fetchone()
+    con.close()
+
+    if db_profile is None:
+        st.error("User profile not found.")
+        st.stop()
+
+    username = db_profile[0]
+    first_name = db_profile[1]
+    birth_date = db_profile[2]
+    weight = db_profile[3]
+    height = db_profile[4]
+    goal = db_profile[5]
+
+    age = calculate_age(birth_date)
+
+    # BMI CALCULATION
+
+    if weight and height:
+        height_m = float(height) / 100
+        bmi = float(weight) / (height_m ** 2)
     else:
-        category = "Obese"
+        bmi = None
 
-    st.subheader("BMI Analysis")
+    # BMI CATEGORY
+    if bmi is not None:
+        if bmi < 18.5:
+            bmi_category = "Underweight"
+        elif bmi < 25:
+            bmi_category = "Normal"
+        elif bmi < 30:
+            bmi_category = "Overweight"
+        else:
+            bmi_category = "Obese"
+    else:
+        bmi_category = "N/A"
 
-    st.write(f"### BMI: {bmi:.2f}")
-    st.write(f"Category: **{category}**")
+    # DASHBOARD PAGE
 
-    # EDIT PROFILE BUTTON
-    if st.button("← Edit Profile"):
+    if page == "Dashboard":
 
-        st.session_state.page = "landing"
+        st.title(f"Welcome, {first_name}!")
 
-        st.rerun()
+        st.divider()
 
-    st.divider()
+        # FITNESS STATS
+      
+        st.subheader("📊 Your Fitness Stats")
 
-    # FOOD IMAGE 
-    uploaded_file = st.file_uploader(
-        "Upload your food image",
-        type=["png", "jpg", "jpeg", "webp"]
-    )
+        col1, col2, col3 = st.columns(3)
 
-    # IMAGE ANALYSIS
-    if uploaded_file is not None:
+        col1.metric("Weight", f"{weight} kg")
+        col2.metric("Height", f"{height} cm")
+        col3.metric("BMI", f"{bmi:.1f}" if bmi else "N/A")
 
-        image = Image.open(uploaded_file).convert("RGB")
+        st.caption(f"Category: {bmi_category}")
 
-        st.image(
-            image,
-            caption="Uploaded Food",
-            use_container_width=300
+        st.divider()
+
+        # DAILY FOOD LOGS
+        con = get_connection()
+        cur = con.cursor()
+
+        cur.execute("""
+            SELECT food_name, calories, protein, carbs, fat
+            FROM FoodLogs
+            WHERE user_id = ? AND DATE(created_at) = DATE('now')
+        """, (user["user_id"],))
+
+        logs = cur.fetchall()
+        con.close()
+
+        total_calories = sum(row[1] or 0 for row in logs)
+        total_protein = sum(row[2] or 0 for row in logs)
+        total_carbs = sum(row[3] or 0 for row in logs)
+        total_fat = sum(row[4] or 0 for row in logs)
+
+        st.subheader("📊 Today's Nutrition Summary")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric("Calories", f"{total_calories:.0f} kcal")
+        col2.metric("Protein", f"{total_protein:.0f} g")
+        col3.metric("Carbs", f"{total_carbs:.0f} g")
+        col4.metric("Fat", f"{total_fat:.0f} g")
+
+        st.divider()
+
+        # FOOD HISTORY
+        st.subheader("🍽️ Food Logged Today")
+
+        if not logs:
+            st.info("No food logged today. Upload your meal below!")
+        else:
+            for row in logs:
+                st.write(
+                    f"🍽️ **{row[0]}** — "
+                    f"{row[1]:.0f} kcal | "
+                    f"P: {row[2]:.0f}g | "
+                    f"C: {row[3]:.0f}g | "
+                    f"F: {row[4]:.0f}g"
+                )
+
+        st.divider()
+
+        # IMAGE UPLOAD + AI
+        st.subheader("📸 Upload Food Image")
+
+        if "uploader_key" not in st.session_state:
+            st.session_state["uploader_key"] = 0
+
+        uploaded_file = st.file_uploader(
+            "Upload your meal",
+            type=["png", "jpg", "jpeg", "webp"],
+            key = f"uploaded_file{st.session_state['uploader_key']}"
         )
 
-        # Convert image to JPEG
-        buffer = io.BytesIO()
+        if uploaded_file is not None:
 
-        image.save(buffer, format="JPEG")
+            image = Image.open(uploaded_file).convert("RGB")
+            st.image(image, caption="Uploaded Food", width=300)
 
-        image_base64 = base64.b64encode(
-            buffer.getvalue()
-        ).decode("utf-8")
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG")
+            image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        # PROMPT
-        prompt = f"""
-        Analyze this food image. Assume 1 standard serving size.
+            if "ai_result" not in st.session_state:
+                prompt = f"""
+                You are a smart nutrition AI. Analyze the uploaded food image carefully.
 
-        User Profile:
-        - Name: {profile['name']}
-        - Age: {profile['age']}
-        - Weight: {profile['weight']} kg
-        - Height: {profile['height']} cm
-        - Fitness Goal: {profile['goal']}
+                User Profile:
+                - Name: {first_name}
+                - Fitness Goal: {goal}
 
-        Health scoring rules:
-        - Base score starts at 50
-        - Add +20 if vegetables are present
-        - Add +15 if lean protein is present
-        - Subtract -20 if deep fried or high oil
-        - Subtract -15 if sugary food is present
-        - Subtract -10 if processed food is present
-        - Maximum score = 100
-        - Minimum score = 0
+                Tasks:
+                1. Identify the main food items in the image.
+                2. Estimate their nutritional content for a standard serving:
+                - Calories (kcal)
+                - Protein (grams)
+                - Carbs (grams)
+                - Fat (grams)
+                3. Score the meal's healthiness (0-100) using these rules:
+                - Base score 50
+                - +20 if vegetables present
+                - +15 if lean protein present
+                - -20 if deep fried/high oil
+                - -15 if sugary food present
+                - -10 if processed food present
+                4. Suggest one personalized recommendation for the user.
+                5. Suggest a short workout based on their goal.
 
-        Also suggest a daily calorie target based on:
-        - age
-        - weight
-        - height
-        - fitness goal
+                Return ONLY in **JSON format** exactly like this (no extra text, no explanations):
 
-        Return ONLY valid JSON:
+                {{
+                    "food_name": "",           # name of the food
+                    "calories": 0,             # estimated kcal
+                    "protein": 0,              # grams
+                    "carbs": 0,                # grams
+                    "fat": 0,                  # grams
+                    "health_score": 0,         # 0-100
+                    "recommendation": "",      # personalized suggestion
+                    "workout": ""              # short workout suggestion
+                }}
+                """
 
-        Return ONLY a number for "calorie_target".
+            with st.spinner("Analyzing food..."):
 
-        {{
-            "foods": [],
-            "calories": 0,
-            "protein": "",
-            "carbs": "",
-            "fat": "",
-            "health_score": 0,
-            "recommendation": "",
-            "workout": "",
-            "calorie_target": 0
-        }}
-        """
-
-        # ANALYSIS
-        with st.spinner("Analyzing food..."):
-
-            response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=500,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": image_base64
+                response = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=500,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/jpeg",
+                                        "data": image_base64
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": prompt
                                 }
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt
-                            }
-                        ]
-                    }
-                ]
-            )
+                            ]
+                        }
+                    ]
+                )
 
-            result = response.content[0].text
+                result = response.content[0].text
 
-        # JSON PARSING
-        try:
+            try:
+                cleaned = result.replace("```json", "").replace("```", "").strip()
+                data = json.loads(cleaned)
 
-            cleaned_result = result.strip()
+            except Exception:
+                st.error("Error parsing AI response")
+                st.write(result)
+                st.stop()
 
-            cleaned_result = cleaned_result.replace("```json", "")
-            cleaned_result = cleaned_result.replace("```", "")
+            st.subheader("AI Result")
 
-            data = json.loads(cleaned_result)
-
-            st.subheader("FITA AI COACH")
-
-            # RESULTS
             col1, col2 = st.columns(2)
 
             with col1:
+                st.write(f" **{data['food_name']}**")
+                st.write(f" Calories: {data['calories']}")
+                st.write(f" Protein: {data['protein']}g")
+                st.write(f" Carbs: {data['carbs']}g")
+                st.write(f" Fat: {data['fat']}g")
 
-                st.write("### Foods Detected")
-
-                for food in data["foods"]:
-                    st.write(f"- {food}")
-
-                st.write("### Calories")
-                st.write(f"{data['calories']} kcal")
-
-                st.write("### Protein")
-                st.write(data["protein"])
-
-            with col2:
-
-                st.write("### Carbs")
-                st.write(data["carbs"])
-
-                st.write("### Fat")
-                st.write(data["fat"])
-
+            with col2:           
                 st.write("### Health Score")
-
-                st.progress(
-                    int(data["health_score"])
-                )
-
-                st.write(
-                    f"{data['health_score']}"
-                )
+                st.progress(int(data.get("health_score", 0)))
+                st.write(f"{int(data.get('health_score'))} / 100")
 
             st.divider()
 
-            # RECOMMENDATIONS
-            st.subheader("Personalized Recommendation")
-
+            st.write("Recommendation")
             st.write(data["recommendation"])
 
-            st.subheader("Suggested Workout")
-
+            st.write("Workout")
             st.write(data["workout"])
 
-            # DAILY GOAL
-            target = int(data.get("calorie_target", 2000))
+            st.info("Does this look right? Save it to your log below.")
 
-            target = max(1200, min(3500, target))
+            if st.button("✅ Save to Log"):
 
-            st.session_state.daily_goal = target
+                con = get_connection()
+                cur = con.cursor()
 
-            # CALORIES
-            calories = int(data["calories"])
+                cur.execute("""
+                    INSERT INTO FoodLogs (user_id, food_name, calories, protein, carbs, fat)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    user["user_id"],
+                    data["food_name"],
+                    data["calories"],
+                    data["protein"],
+                    data["carbs"],
+                    data["fat"]
+                ))
 
-            st.session_state.consumed_calories += calories
+                con.commit()
+                con.close()
 
-            remaining = (
-                st.session_state.daily_goal
-                - st.session_state.consumed_calories
-            )
+                st.success(f"✅ {data['food_name']} saved to your log!")
+                
 
-            # SAVE HISTORY
-            meal_data = {
-                "name": profile["name"],
-                "date": datetime.now().strftime(
-                    "%Y-%m-%d %H:%M"
-                ),
-                "foods": ", ".join(data["foods"]),
-                "calories": calories,
-                "health_score": data["health_score"],
-                "remaining": remaining
-            }
+                st.session_state["uploaded_file"] = None
+                if "ai_result" in st.session_state:
+                    del st.session_state["ai_result"]
+                st.session_state["uploader_key"] += 1
+                st.rerun() 
 
-            meal_df = pd.DataFrame([meal_data])
-
-            if not os.path.exists("meal_history.csv"):
-
-                meal_df.to_csv(
-                    "meal_history.csv",
-                    index=False
-                )
-
-            else:
-
-                meal_df.to_csv(
-                    "meal_history.csv",
-                    mode="a",
-                    header=False,
-                    index=False
-                )
-
-            st.session_state.meal_history.append(
-                meal_data
-            )
-
-        except Exception as e:
-
-            st.error("Error parsing AI response")
-
-            st.write(result)
-
-    st.divider()
-
-    # MEAL HISTORY
-    st.subheader("Meal History")
-
-    profile = st.session_state.user_profile
-
-    if os.path.exists("meal_history.csv"):
-
-        history_df = pd.read_csv("meal_history.csv")
-
-        user_history = history_df[
-            history_df["name"] == profile["name"]
-        ]
-
-        if not user_history.empty:
-
-            st.dataframe(
-                user_history,
-                use_container_width=True
-            )
-
-        else:
-            st.info("No meal history yet.")
-
-    else:
-        st.info("No meal history found.")
-
-     # DAILY CALORIE BUDGET
-    remaining = (
-        st.session_state.daily_goal
-        - st.session_state.consumed_calories
-    )
-
-    st.subheader("🔥 Daily Calorie Budget")
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric(
-        "Goal",
-        f"{st.session_state.daily_goal} kcal"
-    )
-
-    col2.metric(
-        "Consumed",
-        f"{st.session_state.consumed_calories} kcal"
-    )
-
-    col3.metric(
-        "Remaining",
-        f"{remaining} kcal"
-    )
-
-    # STATUS ALERTS
-    if remaining > 500:
-        st.success("You're on track")
-
-    elif remaining > 0:
-        st.warning("You're getting close")
-
-    else:
-        st.error("Calorie limit exceeded")
-
-    # RESET BUTTON
-    if st.button("Reset Day"):
-
-        st.session_state.consumed_calories = 0
-        st.session_state.meal_history = []
-
-        st.success("New day started!")   
+    # PROFILE PAGE REDIRECT
+   
+    elif page == "Profile":
+        st.session_state.page = "profile"
+        st.rerun()
