@@ -19,6 +19,7 @@ def init_db():
             last_name VARCHAR(255),
             email VARCHAR(255) UNIQUE NOT NULL,
             birth_date DATE,
+            sex TEXT,    
             password VARCHAR(255) NOT NULL,
             weight REAL,
             height REAL,
@@ -54,6 +55,13 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES Users(user_id)
         )
     """)
+    try:
+        cur.execute("""
+            ALTER TABLE Users
+            ADD COLUMN sex TEXT
+        """)
+    except:
+        pass
 
     con.commit()
     con.close()

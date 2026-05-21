@@ -32,8 +32,9 @@ def show_dashboard():
 
     # SIDEBAR
 
-    st.sidebar.title("Navigation")
-
+    st.sidebar.title("FITA")
+    st.sidebar.write(f"Logged in as {user['first_name']}")
+   
     page = st.sidebar.radio(
         "Go to",
         ["Dashboard", "Profile"]
@@ -55,7 +56,7 @@ def show_dashboard():
     cur = con.cursor()
 
     cur.execute("""
-        SELECT username, first_name, birth_date, weight, height, goal
+        SELECT username, first_name, birth_date, sex, weight, height, goal
         FROM Users
         WHERE user_id = ?
     """, (user["user_id"],))
@@ -70,11 +71,40 @@ def show_dashboard():
     username = db_profile[0]
     first_name = db_profile[1]
     birth_date = db_profile[2]
-    weight = db_profile[3]
-    height = db_profile[4]
-    goal = db_profile[5]
+    sex = db_profile[3]
+    weight = db_profile[4]
+    height = db_profile[5]
+    goal = db_profile[6]
 
     age = calculate_age(birth_date)
+    
+    #Daily Calories
+    
+    if weight and height:
+
+        if sex == "Male":
+            bmr = 10 * weight + 6.25 * height - 5 * age + 5
+        else:
+            bmr = 10 * weight + 6.25 * height -5 * age -161
+
+
+        #Activity Level
+
+        tdee = bmr * 1.55
+
+        #Goals
+
+        if goal == "Lose Weight":
+            daily_goal = tdee - 500
+
+        elif goal == "Gain Muscle":
+            daily_goal = tdee + 300
+
+        else:
+            daily_goal = tdee
+
+    else:
+        daily_goal = 2000                        
 
     # BMI CALCULATION
 
@@ -100,7 +130,7 @@ def show_dashboard():
     # DASHBOARD PAGE
 
     if page == "Dashboard":
-
+        
         st.title(f"Welcome, {first_name}!")
 
         st.divider()
@@ -139,9 +169,20 @@ def show_dashboard():
 
         st.subheader("📊 Today's Nutrition Summary")
 
+        #Remaining Calories
+        remaining_calories = daily_goal - total_calories
+        
         col1, col2, col3, col4 = st.columns(4)
 
         col1.metric("Calories", f"{total_calories:.0f} kcal")
+        st.markdown(
+            f"""
+            <p style='font-size:16px; color:gray; margin-top:-10px;'>
+                {remaining_calories:.0f} kcal remaining
+            </p>
+            """,
+            unsafe_allow_html=True
+        )    
         col2.metric("Protein", f"{total_protein:.0f} g")
         col3.metric("Carbs", f"{total_carbs:.0f} g")
         col4.metric("Fat", f"{total_fat:.0f} g")
@@ -311,7 +352,6 @@ def show_dashboard():
                 st.success(f"✅ {data['food_name']} saved to your log!")
                 
 
-                st.session_state["uploaded_file"] = None
                 if "ai_result" in st.session_state:
                     del st.session_state["ai_result"]
                 st.session_state["uploader_key"] += 1
