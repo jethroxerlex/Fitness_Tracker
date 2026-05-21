@@ -23,7 +23,7 @@ def init_db():
             weight REAL,
             height REAL,
             age INTEGER,
-            goal TEXT      
+            goal TEXT       
         )
     """)
 

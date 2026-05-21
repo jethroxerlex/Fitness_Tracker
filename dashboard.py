@@ -9,6 +9,10 @@ import json
 from datetime import date
 from db.db import get_connection
 from utils.helpers import calculate_age
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import matplotlib.dates as mdates
 
 # API SETUP
 
@@ -130,7 +134,7 @@ def show_dashboard():
         """, (user["user_id"],))
 
         logs = cur.fetchall()
-        con.close()
+        #con.close()
 
         total_calories = sum(row[1] or 0 for row in logs)
         total_protein = sum(row[2] or 0 for row in logs)
@@ -317,6 +321,47 @@ def show_dashboard():
                 st.session_state["uploader_key"] += 1
                 st.rerun() 
 
+        # trying to add table date to db sqlite 
+        '''con = get_connection()
+        cur = con.cursor()
+
+        cur.execute("""
+            SELECT date, weight
+            FROM Users
+            WHERE user_id = ?
+        """, (user["user_id"],))
+        
+        con.close()'''
+        logs1 = cur.fetchall()
+         # Build DataFrame from logs
+        df = pd.DataFrame(logs1, columns=["DATE", "weight"])
+            
+        # Convert Date column to datetime
+        df["DATE"] = pd.to_datetime(df["DATE"])
+
+        # ✅ Keep weight numeric
+        df["weight"] = pd.to_numeric(df["weight"], errors="coerce").astype("Int64")
+
+        # ✅ Set Date as index before grouping
+        df = df.set_index("DATE")
+
+        # Resample weekly
+        weekly_df = df.groupby(pd.Grouper(freq="W")).sum()
+        
+        # Plot
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+        # Format x-axis to show week start dates
+        #ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))  # every Monday
+        #ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))  
+
+        ax.plot(weekly_df.index, weekly_df["weight"], marker="o", linestyle="-", color="blue")
+
+        plt.title("Weight (kg) Over Time")
+        plt.xlabel("Date")
+        plt.ylabel("Weight (kg)")
+        st.pyplot(fig) 
+        
     # PROFILE PAGE REDIRECT
    
     elif page == "Profile":
