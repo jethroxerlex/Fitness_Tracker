@@ -10,7 +10,8 @@ init_db()
 # PAGE CONFIG
 st.set_page_config(
     page_title="FITA APP",
-    layout="wide"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
 # SESSION STATE

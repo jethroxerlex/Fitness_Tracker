@@ -1,10 +1,42 @@
 import streamlit as st
 import bcrypt
 from db.db import get_connection
+import base64
 
 
 def login_page():
-    st.title("Login")
+    with open("assets/background.png", "rb") as img_file:
+        encoded = base64.b64encode(img_file.read()).decode()
+
+    st.markdown(f"""
+    <style>
+
+    .stApp {{
+        background-image: url("data:image/png;base64,{encoded}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+
+    [data-testid="stHeader"] {{
+        background: rgba(0,0,0,0);
+    }}
+
+    .main {{
+        background: rgba(0,0,0,0.65);
+    }}
+
+    div[data-testid="stForm"] {{
+        background: rgba(0,0,0,0.75);
+        padding: 30px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }}
+
+    </style>
+    """, unsafe_allow_html=True)
+     
 
     with st.form("login_form"):
         username = st.text_input("Username")
@@ -26,12 +58,12 @@ def login_page():
                     con.close()
 
                 else:
-                    stored_hash = user[6]
+                    stored_hash = user[7]
 
-                    if bcrypt.checkpw(password.encode("utf-8"), stored_hash):
+                    if bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
 
                         cur.execute("""
-                            SELECT age, weight, height, goal
+                            SELECT weight, height, goal
                             FROM Users
                             WHERE user_id = ?
                         """, (user[0],))
