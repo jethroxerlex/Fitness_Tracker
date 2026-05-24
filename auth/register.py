@@ -14,6 +14,7 @@ def register_page():
         last_name = st.text_input("Last Name")
         email = st.text_input("Email")
         birth_date = st.date_input("Birthdate",min_value=datetime.date(1900,1,1),max_value=datetime.date.today())
+        sex = st.selectbox("Sex",["Male","Female"])
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Register")
 
@@ -21,14 +22,14 @@ def register_page():
             if not username or not password or not email:
                 st.error("Username, email and password are required!")
             else:
-                hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+                hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
                 con = get_connection()
                 cur = con.cursor()
                 try:
                     cur.execute("""
-                        INSERT INTO Users (username, first_name, last_name, email, birth_date, password)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (username, first_name, last_name, email, str(birth_date), hashed))
+                        INSERT INTO Users (username, first_name, last_name, email, birth_date,sex, password)
+                        VALUES (?, ?, ?, ?, ?, ?,?)
+                    """, (username, first_name, last_name, email, str(birth_date),sex, hashed))
                     con.commit()
                     st.toast("Registration successful!", icon="✅")
 
@@ -67,3 +68,8 @@ def register_page():
                     st.error(f"Unexpected error: {e}.")
                 finally:
                     con.close()
+
+
+    if st.button("Return to Login page"):
+        st.session_state.page = "login"
+        st.rerun()                    

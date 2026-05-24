@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import matplotlib.dates as mdates
+import datetime
 
 # API SETUP
 
@@ -321,47 +322,48 @@ def show_dashboard():
                 st.session_state["uploader_key"] += 1
                 st.rerun() 
 
-        # trying to add table date to db sqlite 
-        '''con = get_connection()
-        cur = con.cursor()
+        st.divider()
 
-        cur.execute("""
-            SELECT date, weight
-            FROM Users
-            WHERE user_id = ?
-        """, (user["user_id"],))
-        
-        con.close()'''
-        logs1 = cur.fetchall()
-         # Build DataFrame from logs
-        df = pd.DataFrame(logs1, columns=["DATE", "weight"])
-            
-        # Convert Date column to datetime
-        df["DATE"] = pd.to_datetime(df["DATE"])
+        with st.form("weight_record"):
+                
+            # 1. Date selector
+            today = datetime.date.today()
+            selected_date = st.date_input("Pick a date", today)
+            weekly_weight_progress = st.number_input("What is your Weight in Kg", min_value=0, max_value=120)
+            save_weight_info = st.form_submit_button("Save")
 
-        # ✅ Keep weight numeric
-        df["weight"] = pd.to_numeric(df["weight"], errors="coerce").astype("Int64")
+            con = get_connection()
+            cur = con.cursor()
 
-        # ✅ Set Date as index before grouping
-        df = df.set_index("DATE")
+            if save_weight_info:
 
-        # Resample weekly
-        weekly_df = df.groupby(pd.Grouper(freq="W")).sum()
-        
-        # Plot
-        fig, ax = plt.subplots(figsize=(10, 4))
+                if not selected_date or not weekly_weight_progress:
+                    st.error("Please fill in all fields.")   
 
-        # Format x-axis to show week start dates
-        #ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))  # every Monday
-        #ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))  
+                else:
 
-        ax.plot(weekly_df.index, weekly_df["weight"], marker="o", linestyle="-", color="blue")
+                    logs = cur.fetchall()
+                    
+                    cur.execute("""
+                        INSERT INTO WeightProgress (user_id, progress_date, progress_weight)
+                        VALUES (?,?,?)    
+                    """, (user["user_id"], selected_date, weekly_weight_progress))
+                    
+                    con.commit()
+                    con.close()
 
-        plt.title("Weight (kg) Over Time")
-        plt.xlabel("Date")
-        plt.ylabel("Weight (kg)")
-        st.pyplot(fig) 
-        
+                    st.write(selected_date, weekly_weight_progress)
+                    st.success(f"✅ Saved!")    
+
+                    df = pd.DataFrame(logs, columns=["progress_date", "progress_weight"])
+
+
+                    # 5. Plot weekly averages
+                    st.subheader("Weight Progress")
+                    #df = weekly_df.set_index("date")
+                    st.line_chart(df)
+
+                    #st.write(df[["progress_date", "progress_weight"]])
     # PROFILE PAGE REDIRECT
    
     elif page == "Profile":

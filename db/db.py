@@ -19,11 +19,12 @@ def init_db():
             last_name VARCHAR(255),
             email VARCHAR(255) UNIQUE NOT NULL,
             birth_date DATE,
+            sex TEXT,    
             password VARCHAR(255) NOT NULL,
             weight REAL,
             height REAL,
             age INTEGER,
-            goal TEXT       
+            goal TEXT
         )
     """)
 
@@ -54,6 +55,24 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES Users(user_id)
         )
     """)
+
+    # Weight Progress
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS WeightProgress(
+            user_id INTEGER NOT NULL,    
+            progress_date DATE,  
+            progress_weight REAL,     
+            FOREIGN KEY (user_id) REFERENCES Users(user_id)
+        )
+    """)
+
+    try:
+        cur.execute("""
+            ALTER TABLE Users
+            ADD COLUMN sex TEXT
+        """)
+    except:
+        pass
 
     con.commit()
     con.close()
