@@ -325,7 +325,8 @@ def show_dashboard():
         st.divider()
 
         with st.form("weight_record"):
-                
+            # Saving weight progress
+            st.subheader("Save your Progress here")    
             # 1. Date selector
             today = datetime.date.today()
             selected_date = st.date_input("Pick a date", today)
@@ -334,7 +335,7 @@ def show_dashboard():
 
             con = get_connection()
             cur = con.cursor()
-
+            logs = cur.fetchall()    
             if save_weight_info:
 
                 if not selected_date or not weekly_weight_progress:
@@ -351,20 +352,31 @@ def show_dashboard():
                     
                     con.commit()
                     con.close()
-
+                       
                     st.write(selected_date, weekly_weight_progress)
                     st.success(f"✅ Saved!")    
 
-                    df = pd.DataFrame(logs, columns=["progress_date", "progress_weight"])
-
-
-                    # 5. Plot weekly averages
-                    st.subheader("Weight Progress")
-                    #df = weekly_df.set_index("date")
-                    st.line_chart(df)
-
                     #st.write(df[["progress_date", "progress_weight"]])
-    # PROFILE PAGE REDIRECT
+
+        st.divider()
+
+        # 5. Plot weekly averages
+        st.subheader("Weight Progress")
+        #df = weekly_df.set_index("date")
+        #st.line_chart(df)
+        df = pd.DataFrame(logs, columns=["progress_date", "progress_weight"])    
+        
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.set_title(f"Weight Progress")
+    
+        sns.lineplot(data=df, x="progress_date", y="progress_weight", ax=ax, markers=True)
+        plt.xlabel("Date")
+        plt.ylabel("Weight")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(fig)   
+
+    # PROFILE PAGE REDIRECTWeightProgress
    
     elif page == "Profile":
         st.session_state.page = "profile"
