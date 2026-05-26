@@ -55,10 +55,23 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES Users(user_id)
         )
     """)
+    # Weight Progress
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS WeightProgress (
+            progress_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            progress_date DATE NOT NULL,
+            progress_weight REAL NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (user_id)
+            REFERENCES Users(user_id)
+        )
+        """)
     try:
         cur.execute("""
-            ALTER TABLE Users
-            ADD COLUMN sex TEXT
+            ALTER TABLE FoodLogs
+            ADD COLUMN meal_type TEXT DEFAULT 'Snacks'
         """)
     except:
         pass

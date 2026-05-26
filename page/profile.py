@@ -77,6 +77,20 @@ def profile_page():
                 new_goal,
                 user["user_id"]
             ))
+
+             # WEIGHT HISTORY
+            cur.execute("""
+                INSERT INTO WeightProgress
+                (
+                    user_id,
+                    progress_date,
+                    progress_weight
+                )
+                VALUES (?, DATE('now'), ?)
+            """, (
+                user["user_id"],
+                new_weight
+            ))
             con.commit()
             con.close()
 
