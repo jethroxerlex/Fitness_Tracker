@@ -115,6 +115,7 @@ For cleaner and more maintainable code.
 * dotenv
 
 # Project Structure
+```bash
 Fitness Tracker/
 │
 ├── assets/
@@ -158,7 +159,7 @@ Fitness Tracker/
 ├── fita.db
 ├── requirements.txt
 └── README.md
-
+```
 
 # Installation
 
