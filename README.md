@@ -114,6 +114,51 @@ For cleaner and more maintainable code.
 * Pillow
 * dotenv
 
+# Project Structure
+Fitness Tracker/
+│
+├── assets/
+│
+├── auth/
+│   ├── __init__.py
+│   ├── login.py
+│   └── register.py
+│
+├── components/
+│   ├── __init__.py
+│   ├── fitness_stats.py
+│   ├── food_analyzer.py
+│   ├── food_history.py
+│   ├── nutrition_summary.py
+│   ├── recipe_generator.py
+│   ├── sidebar.py
+│   └── weight_progress.py
+│
+├── db/
+│   ├── __init__.py
+│   ├── db.py
+│
+├── page/
+│   ├── __init__.py
+│   └── profile.py
+│
+├── services/
+│   ├── __init__.py
+│   ├── ai_service.py
+│   └── user_service.py
+│
+├── utils/
+│   ├── __init__.py
+│   └── helpers.py
+│
+├── .env
+├── .gitignore
+├── app.py
+├── dashboard.py
+├── fita.db
+├── requirements.txt
+└── README.md
+
 
 # Installation
 
