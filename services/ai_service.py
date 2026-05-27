@@ -1,7 +1,6 @@
 import anthropic
 import os
 import json
-import base64
 
 from dotenv import load_dotenv
 

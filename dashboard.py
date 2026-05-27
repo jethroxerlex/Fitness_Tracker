@@ -136,7 +136,8 @@ def show_dashboard():
         )
 
         render_weight_progress(
-            weight_logs
+            weight_logs,
+            height
         )
 
         st.divider()
