@@ -266,3 +266,10 @@ This project helped strengthen skills in:
 * Software modularization
 * UI/UX iteration
 
+---
+
+# Team Members:
+- Jethro Ramos
+- Kev Rosina
+- Airish Christian Tabay
+- Jamees Imanuel Genese
